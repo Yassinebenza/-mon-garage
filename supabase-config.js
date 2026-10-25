@@ -1,0 +1,7 @@
+const SUPABASE_URL = "TON_URL_SUPABASE";
+const SUPABASE_ANON_KEY = "TA_CLE_PUBLIQUE_SUPABASE";
+
+window.supabaseConfig = {
+  url: SUPABASE_URL,
+  anonKey: SUPABASE_ANON_KEY
+};
