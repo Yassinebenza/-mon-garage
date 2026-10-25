@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mon Garage</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#172535;background:#f1f5f9}*{box-sizing:border-box}body{margin:0}header{background:#132b45;color:white;padding:20px 16px}header h1{margin:0;font-size:25px}header p{margin:6px 0 0;color:#cbd5e1}main{max-width:960px;margin:auto;padding:18px 12px}h2{font-size:19px;margin:24px 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.spot{border:2px solid #cbd5e1;background:#fff;border-radius:14px;text-align:left;padding:12px;min-height:130px;cursor:pointer;color:inherit}.spot.filled{border-color:#f59e0b}.spot b{display:block;font-size:17px}.spot span{display:block;margin-top:8px;color:#475569;font-size:14px;overflow-wrap:anywhere}.spot img{width:100%;height:95px;object-fit:cover;border-radius:8px;margin-top:8px}.tag{display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:3px 9px;font-size:12px;margin-top:8px}.filled .tag{background:#fef3c7;color:#92400e}.panel{background:#fff;border-radius:14px;padding:16px;margin-top:15px;box-shadow:0 1px 4px #0001}input,select,textarea,button{font:inherit}input,select,textarea{display:block;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;margin:6px 0 12px}textarea{min-height:75px}label{font-weight:600;font-size:14px}button.action{border:0;border-radius:9px;background:#1463aa;color:white;padding:11px 15px;cursor:pointer;margin:3px 5px 3px 0}.danger{background:#b91c1c!important}.secondary{background:#64748b!important}.hidden{display:none}.task{border-top:1px solid #e2e8f0;padding:11px 0;overflow-wrap:anywhere}.task:first-child{border-top:0}.small{font-size:13px;color:#64748b}.empty{color:#64748b}.row{display:flex;gap:7px;flex-wrap:wrap}footer{font-size:12px;color:#64748b;margin:24px 0;text-align:center}
+</style>
+</head>
+<body>
+<header><h1>🚗 Mon Garage</h1><p>Cour de véhicules et suivi des réparations</p></header>
+<main>
+<div class="panel"><strong id="summary">Chargement…</strong><div class="small">Touchez une place pour ajouter, modifier ou libérer un véhicule.</div></div>
+<h2>🚘 Véhicules à vendre — V1 à V12</h2><div class="grid" id="sales"></div>
+<h2>🧰 Véhicules clients — C1 à C6</h2><div class="grid" id="clients"></div>
+<section id="editor" class="panel hidden"><h2 id="edit-title">Modifier une place</h2>
+<form id="vehicle-form">
+<label>Nom ou modèle du véhicule<input id="vehicle" maxlength="100" placeholder="Ex. Toyota Corolla"></label>
+<label>Client / propriétaire<input id="owner" maxlength="100" placeholder="Nom (facultatif)"></label>
+<label>Prix demandé ($)<input id="price" type="number" min="0" step="0.01" placeholder="Pour les véhicules à vendre"></label>
+<label>Photo (lien https://...)<input id="photo" type="url" placeholder="https://..."></label>
+<label>État<select id="status"><option>En attente</option><option>En réparation</option><option>Prêt</option><option>À vendre</option><option>Vendu</option></select></label>
+<label>Notes<textarea id="notes" placeholder="Détails, travaux nécessaires…"></textarea></label>
+<div class="row"><button class="action" type="submit">Enregistrer</button><button class="action danger" type="button" id="clear">Libérer la place</button><button class="action secondary" type="button" id="cancel">Fermer</button></div>
+</form></section>
+<h2>📋 File des réparations</h2><div class="panel"><form id="repair-form"><label>Véhicule / travail à faire<input id="job" required maxlength="150" placeholder="Ex. C2 – changer les freins"></label><label>Détails<textarea id="job-notes" placeholder="Pièces, instructions…"></textarea></label><button class="action" type="submit">Ajouter à la file</button></form><div id="tasks"></div></div>
+<footer id="sync-info">Mode local : les données sont conservées sur cet appareil jusqu’à la configuration de Supabase.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const STORE='monGarageDemoV1';
+// Renseigner uniquement l’URL du projet et sa clé PUBLIQUE (jamais une clé secrète).
+const SUPABASE_URL='';
+const SUPABASE_PUBLISHABLE_KEY='';
+const cloudEnabled=Boolean(SUPABASE_URL&&SUPABASE_PUBLISHABLE_KEY);
+let cloud=null;
+let cloudReady=false;
+let saving=Promise.resolve();
+
+const slots=[...Array.from({length:12},(_,i)=>'V'+(i+1)),...Array.from({length:6},(_,i)=>'C'+(i+1))];
+let state;
+try{state=JSON.parse(localStorage.getItem(STORE))||{cars:{},jobs:[]}}catch(e){state={cars:{},jobs:[]}}
+if(!state.cars||typeof state.cars!=='object')state.cars={};if(!Array.isArray(state.jobs))state.jobs=[];
+const $=id=>document.getElementById(id);
+let active=null;
+function save(){
+  localStorage.setItem(STORE,JSON.stringify(state));render();
+  if(cloudReady){
+    const snapshot=JSON.parse(JSON.stringify(state));
+    saving=saving.then(async()=>{
+      const {error}=await cloud.from('garage_state').upsert({id:1,data:snapshot,updated_at:new Date().toISOString()});
+      if(error)throw error;
+    }).catch(err=>{console.error(err);$('sync-info').textContent='Synchronisation impossible : '+err.message;});
+  }
+}
+async function startCloud(){
+  if(!cloudEnabled)return;
+  $('sync-info').textContent='Connexion à Supabase…';
+  try{
+    cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+    const {error:authError}=await cloud.auth.signInAnonymously();
+    if(authError)throw authError;
+    const {data,error}=await cloud.from('garage_state').select('data').eq('id',1).maybeSingle();
+    if(error)throw error;
+    if(data?.data){state=data.data;state.cars??={};state.jobs??=[];localStorage.setItem(STORE,JSON.stringify(state));}
+    else {
+      const {error:insertError}=await cloud.from('garage_state').upsert({id:1,data:state,updated_at:new Date().toISOString()});
+      if(insertError)throw insertError;
+    }
+    cloudReady=true;render();
+    $('sync-info').textContent='Synchronisation Supabase active. Ne partagez pas le lien avec des personnes non autorisées.';
+    cloud.channel('garage-updates').on('postgres_changes',{event:'*',schema:'public',table:'garage_state',filter:'id=eq.1'},async()=>{
+      await saving;
+      const {data,error}=await cloud.from('garage_state').select('data').eq('id',1).maybeSingle();
+      if(!error&&data?.data){state=data.data;state.cars??={};state.jobs??=[];localStorage.setItem(STORE,JSON.stringify(state));render();}
+    }).subscribe();
+  }catch(err){console.error(err);$('sync-info').textContent='Connexion Supabase non disponible : '+err.message;}
+}
+
+function elem(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);return el}
+function drawGroup(target,ids){$(target).replaceChildren();ids.forEach(id=>{const c=state.cars[id],b=elem('button','spot'+(c?' filled':''));b.type='button';b.append(elem('b','',id),elem('span','',c?.vehicle||'Place libre'));if(c){if(c.price&&id.startsWith('V'))b.append(elem('span','',Number(c.price).toLocaleString('fr-CA')+' $'));b.append(elem('span','tag',c.status||'En attente'));if(c.photo&&/^https:\/\//i.test(c.photo)){const im=elem('img');im.src=c.photo;im.alt='Photo du véhicule';im.loading='lazy';b.append(im)}}else b.append(elem('span','tag','Disponible'));b.addEventListener('click',()=>edit(id));$(target).append(b)})}
+function render(){drawGroup('sales',slots.slice(0,12));drawGroup('clients',slots.slice(12));const filled=slots.filter(id=>state.cars[id]);$('summary').textContent=`Vente : ${slots.slice(0,12).filter(id=>state.cars[id]).length}/12 occupées · Clients : ${slots.slice(12).filter(id=>state.cars[id]).length}/6 occupées · Réparations : ${state.jobs.filter(j=>!j.done).length} en attente`;const area=$('tasks');area.replaceChildren();if(!state.jobs.length)area.append(elem('p','empty','Aucune réparation dans la file.'));state.jobs.forEach((job,i)=>{const div=elem('div','task');const title=elem('strong','',`${i+1}. ${job.title}${job.done?' ✓ Terminé':''}`);div.append(title);if(job.notes)div.append(elem('p','small',job.notes));const controls=elem('div','row');[['↑',()=>move(i,-1)],['↓',()=>move(i,1)],[job.done?'Rouvrir':'Terminer',()=>{job.done=!job.done;save()}],['Supprimer',()=>{if(confirm('Supprimer cette tâche ?')){state.jobs.splice(i,1);save()}}]].forEach(([label,fn])=>{const b=elem('button','action secondary',label);b.type='button';b.addEventListener('click',fn);controls.append(b)});div.append(controls);area.append(div)})}
+function move(i,d){const j=i+d;if(j<0||j>=state.jobs.length)return;[state.jobs[i],state.jobs[j]]=[state.jobs[j],state.jobs[i]];save()}
+function edit(id){active=id;const c=state.cars[id]||{};$('edit-title').textContent='Place '+id;['vehicle','owner','price','photo','notes'].forEach(k=>$(k).value=c[k]||'');$('status').value=c.status|| (id.startsWith('V')?'À vendre':'En attente');$('editor').classList.remove('hidden');$('editor').scrollIntoView({behavior:'smooth',block:'start'})}
+$('vehicle-form').addEventListener('submit',e=>{e.preventDefault();const vehicle=$('vehicle').value.trim();if(!vehicle){alert('Indiquez le véhicule.');return}const photo=$('photo').value.trim();if(photo&&!/^https:\/\//i.test(photo)){alert('Utilisez un lien photo https://');return}state.cars[active]={vehicle,owner:$('owner').value.trim(),price:$('price').value,photo,status:$('status').value,notes:$('notes').value.trim()};$('editor').classList.add('hidden');save()});
+$('clear').addEventListener('click',()=>{if(active&&confirm('Libérer la place '+active+' ?')){delete state.cars[active];$('editor').classList.add('hidden');save()}});
+$('cancel').addEventListener('click',()=>$('editor').classList.add('hidden'));
+$('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
+render();
+startCloud();
+</script>
+</body>
+</html>
