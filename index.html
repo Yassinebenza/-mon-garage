@@ -158,11 +158,34 @@ save();
 });                                                 
 $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
-  $('history-btn').addEventListener('click', () => {
+ $('history-btn').addEventListener('click', async () => {
   const panel = $('history-panel');
   panel.hidden = !panel.hidden;
-  if (!panel.hidden) {
-    panel.textContent = '📋 Historique des modifications : chargement à configurer.';
+  if (panel.hidden) return;
+  panel.textContent = 'Chargement de l’historique…';
+  try {
+    const result = await api('history');
+    const history = result.history || [];
+    panel.replaceChildren();
+    if (history.length === 0) {
+      panel.textContent = 'Aucune modification enregistrée.';
+      return;
+    }
+    history.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'task';
+      const date = item.created_at
+        ? new Date(item.created_at).toLocaleString('fr-CA')
+        : 'Date inconnue';
+      div.textContent =
+        date + ' — ' +
+        (item.username || 'Utilisateur inconnu') +
+        ' — ' + (item.action || 'Modification') +
+        (item.vehicle_slot ? ' — Place ' + item.vehicle_slot : '');
+      panel.appendChild(div);
+    });
+  } catch (err) {
+    panel.textContent = 'Erreur : ' + err.message;
   }
 });
 async function restoreSession() {
