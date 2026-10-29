@@ -138,6 +138,8 @@ render();
 async function restoreSession() {
   if (!sessionToken) return;
   try {
+    const verification = await api('verify');
+    currentRole = verification.role;
     const garage = await api('read');
     state = normalize(garage.data);
     render();
@@ -146,6 +148,7 @@ async function restoreSession() {
     info('✓ Connexion restaurée automatiquement');
   } catch (err) {
     sessionToken = null;
+    currentRole = null;
     sessionStorage.removeItem('garage_session_token');
     $('app').classList.add('hidden');
     $('login').classList.remove('hidden');
