@@ -22,8 +22,7 @@ const FUNCTION_URL=SUPABASE_URL+'/functions/v1/garage-access';
   const LOGIN_URL=SUPABASE_URL+'/functions/v1/garage-login';
 const $=id=>document.getElementById(id);
 const slots=[...Array.from({length:12},(_,i)=>'V'+(i+1)),...Array.from({length:6},(_,i)=>'C'+(i+1))];
-let state={cars:{},jobs:[]},sessionToken=null,active=null,saving=Promise.resolve(),dirty=false,refreshing=false;
-function normalize(s){return {cars:s?.cars&&typeof s.cars==='object'&&!Array.isArray(s.cars)?s.cars:{},jobs:Array.isArray(s?.jobs)?s.jobs:[]}}
+let state={cars:{},jobs:[]},sessionToken=sessionStorage.getItem('garage_session_token'),active=null,saving=Promise.resolve(),dirty=false,refreshing=false;function normalize(s){return {cars:s?.cars&&typeof s.cars==='object'&&!Array.isArray(s.cars)?s.cars:{},jobs:Array.isArray(s?.jobs)?s.jobs:[]}}
 function info(message){$('sync-info').textContent=message}
 async function api(action,data){
   if(!sessionToken) throw new Error('Veuillez vous reconnecter.');
@@ -94,6 +93,7 @@ $('login-form').addEventListener('submit', async e => {
       throw new Error(result.error || 'Connexion refusée');
     }
     sessionToken = result.token;
+    sessionStorage.setItem('garage_session_token', result.token);
     const garage = await api('read');
     state = normalize(garage.data);
     render();
@@ -109,7 +109,7 @@ $('login-form').addEventListener('submit', async e => {
     btn.disabled = false;
   }
 });
-$('logout').addEventListener('click',()=>{sessionToken=null;state={cars:{},jobs:[]};active=null;render();$('app').classList.add('hidden');$('login').classList.remove('hidden');info('Déconnecté');});
+$('logout').addEventListener('click',()=>{sessionToken=null;sessionStorage.removeItem('garage_session_token');state={cars:{},jobs:[]};active=null;render();$('app').classList.add('hidden');$('login').classList.remove('hidden');info('Déconnecté');});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)saving.then(refreshCloud)});
 setInterval(()=>{if(!document.hidden)saving.then(refreshCloud)},12000);
 function elem(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);return el}
@@ -121,4 +121,21 @@ $('vehicle-form').addEventListener('submit',e=>{e.preventDefault();const vehicle
 $('cancel').addEventListener('click',()=>$('editor').classList.add('hidden'));
 $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
+async function restoreSession() {
+  if (!sessionToken) return;
+  try {
+    const garage = await api('read');
+    state = normalize(garage.data);
+    render();
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    info('✓ Connexion restaurée automatiquement');
+  } catch (err) {
+    sessionToken = null;
+    sessionStorage.removeItem('garage_session_token');
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+  }
+}
+restoreSession();
 </script></body></html>
