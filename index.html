@@ -70,6 +70,7 @@ function save(){
     dirty=false;info('✓ Enregistré dans Supabase');
   }).catch(err=>{console.error(err);info('⚠️ Non enregistré : '+err.message)});
 }
+  setInterval(refreshCloud, 5000);
 $('login-form').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('login-button');
