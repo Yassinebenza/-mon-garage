@@ -177,11 +177,26 @@ render();
       const date = item.created_at
         ? new Date(item.created_at).toLocaleString('fr-CA')
         : 'Date inconnue';
-      div.textContent =
-        date + ' — ' +
-        (item.username || 'Utilisateur inconnu') +
-        ' — ' + (item.action || 'Modification') +
-        (item.vehicle_slot ? ' — Place ' + item.vehicle_slot : '');
+      const titre = document.createElement('div');
+titre.textContent =
+  date + ' — ' +
+  (item.username || 'Utilisateur inconnu') +
+  ' — ' + (item.vehicle_slot ? 'Place ' + item.vehicle_slot : 'Modification');
+const details = document.createElement('pre');
+details.hidden = true;
+details.style.whiteSpace = 'pre-wrap';
+details.style.overflowWrap = 'anywhere';
+titre.style.cursor = 'pointer';
+titre.addEventListener('click', () => {
+  details.hidden = !details.hidden;
+});
+const ancien = item.old_data || {};
+const nouveau = item.new_data || {};
+details.textContent =
+  'AVANT :\n' + JSON.stringify(ancien, null, 2) +
+  '\n\nAPRÈS :\n' + JSON.stringify(nouveau, null, 2);
+div.appendChild(titre);
+div.appendChild(details);
       panel.appendChild(div);
     });
   } catch (err) {
