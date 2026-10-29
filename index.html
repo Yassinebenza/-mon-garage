@@ -150,6 +150,9 @@ if (isMechanic) {
     notes: $('notes').value.trim()
   };
 }
+ $('editor').classList.add('hidden');
+save();
+});                                                 
 $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
 async function restoreSession() {
