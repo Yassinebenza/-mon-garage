@@ -131,8 +131,25 @@ function edit(id){
   $('editor').classList.remove('hidden');
   $('editor').scrollIntoView({behavior:'smooth',block:'start'});
 }
-  $('vehicle-form').addEventListener('submit',e=>{e.preventDefault();const vehicle=$('vehicle').value.trim();if(!vehicle){alert('Indiquez le véhicule.');return}const photo=$('photo').value.trim();if(photo&&!/^https:\/\//i.test(photo)){alert('Utilisez un lien photo https://');return}state.cars[active]={vehicle,owner:$('owner').value.trim(),phone:$('phone').value.trim(),price:$('price').value,photo,status:$('status').value,notes:$('notes').value.trim()};$('editor').classList.add('hidden');save()});$('clear').addEventListener('click',()=>{if(active&&confirm('Libérer la place '+active+' ?')){delete state.cars[active];$('editor').classList.add('hidden');save()}});
-$('cancel').addEventListener('click',()=>$('editor').classList.add('hidden'));
+  $('vehicle-form').addEventListener('submit',e=>{e.preventDefault();const vehicle=$('vehicle').value.trim();if(!vehicle){alert('Indiquez le véhicule.');return}const photo=$('photo').value.trim();if(photo&&!/^https:\/\//i.test(photo)){alert('Utilisez un lien photo https://');return}const isMechanic = String(currentRole).toLowerCase() === 'mecanicien';
+if (isMechanic) {
+  state.cars[active] = {
+    vehicle,
+    photo,
+    status: $('status').value,
+    notes: $('notes').value.trim()
+  };
+} else {
+  state.cars[active] = {
+    vehicle,
+    owner: $('owner').value.trim(),
+    phone: $('phone').value.trim(),
+    price: $('price').value,
+    photo,
+    status: $('status').value,
+    notes: $('notes').value.trim()
+  };
+}
 $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
 async function restoreSession() {
