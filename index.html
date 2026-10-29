@@ -13,7 +13,9 @@
 <label>Notes<textarea id="notes" placeholder="Détails, travaux nécessaires…"></textarea></label>
 <div class="row"><button class="action" type="submit">Enregistrer</button><button class="action danger" type="button" id="clear">Libérer la place</button><button class="action secondary" type="button" id="cancel">Fermer</button></div></form></section>
 <h2>📋 File des réparations</h2><div class="panel"><form id="repair-form"><label>Véhicule / travail à faire<input id="job" required maxlength="150" placeholder="Ex. C2 – changer les freins"></label><label>Détails<textarea id="job-notes" placeholder="Pièces, instructions…"></textarea></label><button class="action" type="submit">Ajouter à la file</button></form><div id="tasks"></div></div>
-<footer id="sync-info">Connexion en cours…</footer><button type="button" class="action secondary" id="logout">🔒 Verrouiller</button></main>
+<button type="button" class="action secondary" id="history-btn">📋 Historique des modifications</button>
+<div id="history-panel" class="panel" hidden></div>
+  <footer id="sync-info">Connexion en cours…</footer><button type="button" class="action secondary" id="logout">🔒 Verrouiller</button></main>
 <script>
 'use strict';
 const SUPABASE_URL='https://xkbdtjxjalxgekogbkqj.supabase.co';
@@ -156,6 +158,13 @@ save();
 });                                                 
 $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
+  $('history-btn').addEventListener('click', () => {
+  const panel = $('history-panel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) {
+    panel.textContent = '📋 Historique des modifications : chargement à configurer.';
+  }
+});
 async function restoreSession() {
   if (!sessionToken) return;
   try {
