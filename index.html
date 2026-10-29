@@ -125,7 +125,7 @@ function edit(id){
   ['vehicle','owner','phone','price','photo','notes'].forEach(k=>{
     $(k).value=c[k]||'';
   });
-  const isMechanic=String(currentRole).toLowerCase()==='mecanicien';
+  const isMechanic=String(currentRole || '').trim().toLowerCase()==='mecanicien';
   $('price').closest('label').style.display=isMechanic?'none':'';
   $('status').value=c.status||(id.startsWith('V')?'À vendre':'En attente');
   $('editor').classList.remove('hidden');
