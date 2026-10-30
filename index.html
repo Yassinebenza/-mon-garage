@@ -192,9 +192,47 @@ titre.addEventListener('click', () => {
 });
 const ancien = item.old_data || {};
 const nouveau = item.new_data || {};
-details.textContent =
-  'AVANT :\n' + JSON.stringify(ancien, null, 2) +
-  '\n\nAPRÈS :\n' + JSON.stringify(nouveau, null, 2);
+const changements = [];
+const labels = {
+  vehicle: 'Véhicule',
+  status: 'Statut',
+  price: 'Prix',
+  owner: 'Propriétaire',
+  phone: 'Téléphone',
+  notes: 'Notes'
+};
+const anciennesVoitures = ancien.cars || {};
+const nouvellesVoitures = nouveau.cars || {};
+for (const place of new Set([
+  ...Object.keys(anciennesVoitures),
+  ...Object.keys(nouvellesVoitures)
+])) {
+  const avant = anciennesVoitures[place] || {};
+  const apres = nouvellesVoitures[place] || {};
+  for (const champ of Object.keys(labels)) {
+    if ((avant[champ] || '') !== (apres[champ] || '')) {
+      changements.push(
+        '🚗 Place ' + place + ' — ' + labels[champ] +
+        '\n   Avant : ' + (avant[champ] || '—') +
+        '\n   Après : ' + (apres[champ] || '—')
+      );
+    }
+  }
+}
+if (JSON.stringify(ancien.jobs || []) !==
+    JSON.stringify(nouveau.jobs || [])) {
+  changements.push('🔧 Liste des réparations modifiée');
+}
+titre.textContent =
+  '📅 ' + date + '  |  👤 ' +
+  (item.username || 'Utilisateur') +
+  '  |  ' + changements.length + ' changement(s)';
+details.textContent = changements.length
+  ? changements.join('\n\n')
+  : 'Aucun changement détecté';
+details.style.padding = '12px';
+details.style.background = '#f1f5f9';
+details.style.borderRadius = '8px';
 div.appendChild(titre);
 div.appendChild(details);
       panel.appendChild(div);
