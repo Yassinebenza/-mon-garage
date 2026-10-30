@@ -37,8 +37,27 @@ const makeSlots = (prefix, count) =>
 let slots = [...makeSlots('V',12), ...makeSlots('C',6)];  let currentRole = null;
   let salesCount = 12;
 let clientsCount = 6;
-let state={cars:{},jobs:[]},sessionToken=sessionStorage.getItem('garage_session_token'),active=null,saving=Promise.resolve(),dirty=false,refreshing=false;function normalize(s){return {cars:s?.cars&&typeof s.cars==='object'&&!Array.isArray(s.cars)?s.cars:{},jobs:Array.isArray(s?.jobs)?s.jobs:[]}}
-function info(message){$('sync-info').textContent=message}
+let state={cars:{},jobs:[]},sessionToken=sessionStorage.getItem('garage_session_token'),active=null,saving=Promise.resolve(),dirty=false,refreshing=false;function normalize(s){
+  return {
+    cars: s?.cars && typeof s.cars === 'object' && !Array.isArray(s.cars) ? s.cars : {},
+    jobs: Array.isArray(s?.jobs) ? s.jobs : [],
+    capacity: {
+      sales: Number(s?.capacity?.sales ?? 12),
+      clients: Number(s?.capacity?.clients ?? 6)
+    }
+  }
+}
+function updateSlots(){
+  salesCount = Math.max(6, Math.min(15, Number(state.capacity?.sales ?? 12)));
+  clientsCount = Math.max(4, Math.min(8, Number(state.capacity?.clients ?? 6)));
+  slots = [
+    ...makeSlots('V', salesCount),
+    ...makeSlots('C', clientsCount)
+  ];
+  $('sales-count').value = salesCount;
+  $('clients-count').value = clientsCount;
+}
+}
 async function api(action,data){
   if(!sessionToken) throw new Error('Veuillez vous reconnecter.');
   const controller=new AbortController();
@@ -74,6 +93,27 @@ async function refreshCloud(){
   catch(err){info('⚠️ Synchronisation : '+err.message)}
   finally{refreshing=false}
 }
+  $('save-capacity').addEventListener('click', () => {
+  const ventes = Number($('sales-count').value);
+  const clients = Number($('clients-count').value);
+  if (ventes < 6 || ventes > 15 || clients < 4 || clients > 8 ||
+      !Number.isInteger(ventes) || !Number.isInteger(clients)) {
+    alert('Vente : 6 à 15 places. Réparations : 4 à 8 places.');
+    return;
+  }
+  const placesSupprimees = slots.filter(id =>
+    (id.startsWith('V') && Number(id.slice(1)) > ventes) ||
+    (id.startsWith('C') && Number(id.slice(1)) > clients)
+  );
+  if (placesSupprimees.some(id => state.cars[id])) {
+    alert('Impossible de réduire les places : certaines sont occupées.');
+    return;
+  }
+  state.capacity = { sales: ventes, clients: clients };
+  updateSlots();
+  save();
+  alert('Nombre de places enregistré !');
+});
 function save(){
   if(!sessionToken){info('Veuillez vous reconnecter.');return}
   render();dirty=true;
@@ -131,7 +171,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)saving.the
 setInterval(()=>{if(!document.hidden)saving.then(refreshCloud)},12000);
 function elem(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);return el}
 function drawGroup(target,ids){$(target).replaceChildren();ids.forEach(id=>{const c=state.cars[id],b=elem('button','spot'+(c?' filled':''));b.type='button';b.append(elem('b','',id),elem('span','',c?.vehicle||'Place libre'));if(c){if(c.price&&id.startsWith('V'))b.append(elem('span','',Number(c.price).toLocaleString('fr-CA')+' $'));b.append(elem('span','tag',c.status||'En attente'));if(c.photo&&/^https:\/\//i.test(c.photo)){const im=elem('img');im.src=c.photo;im.alt='Photo du véhicule';im.loading='lazy';b.append(im)}}else b.append(elem('span','tag','Disponible'));b.addEventListener('click',()=>edit(id));$(target).append(b)})}
-function render(){drawGroup('sales',slots.slice(0,12));drawGroup('clients',slots.slice(12));$('summary').textContent=`Vente : ${slots.slice(0,12).filter(id=>state.cars[id]).length}/12 occupées · Clients : ${slots.slice(12).filter(id=>state.cars[id]).length}/6 occupées · Réparations : ${state.jobs.filter(j=>!j.done).length} en attente`;const area=$('tasks');area.replaceChildren();if(!state.jobs.length)area.append(elem('p','empty','Aucune réparation dans la file.'));state.jobs.forEach((job,i)=>{const div=elem('div','task');div.append(elem('strong','',`${i+1}. ${job.title}${job.done?' ✓ Terminé':''}`));if(job.notes)div.append(elem('p','small',job.notes));const controls=elem('div','row');[['↑',()=>move(i,-1)],['↓',()=>move(i,1)],[job.done?'Rouvrir':'Terminer',()=>{job.done=!job.done;save()}],['Supprimer',()=>{if(confirm('Supprimer cette tâche ?')){state.jobs.splice(i,1);save()}}]].forEach(([label,fn])=>{const b=elem('button','action secondary',label);b.type='button';b.addEventListener('click',fn);controls.append(b)});div.append(controls);area.append(div)})}
+function render(){updateSlots();drawGroup('sales', makeSlots('V', salesCount));
+drawGroup('clients', makeSlots('C', clientsCount));$('summary').textContent=`Vente : ${makeSlots('V',salesCount).filter(id=>state.cars[id]).length}/${salesCount} occupées · Clients : ${makeSlots('C',clientsCount).filter(id=>state.cars[id]).length}/${clientsCount} occupées · Réparations : ${state.jobs.filter(j=>!j.done).length} en attente`;const area=$('tasks');area.replaceChildren();if(!state.jobs.length)area.append(elem('p','empty','Aucune réparation dans la file.'));state.jobs.forEach((job,i)=>{const div=elem('div','task');div.append(elem('strong','',`${i+1}. ${job.title}${job.done?' ✓ Terminé':''}`));if(job.notes)div.append(elem('p','small',job.notes));const controls=elem('div','row');[['↑',()=>move(i,-1)],['↓',()=>move(i,1)],[job.done?'Rouvrir':'Terminer',()=>{job.done=!job.done;save()}],['Supprimer',()=>{if(confirm('Supprimer cette tâche ?')){state.jobs.splice(i,1);save()}}]].forEach(([label,fn])=>{const b=elem('button','action secondary',label);b.type='button';b.addEventListener('click',fn);controls.append(b)});div.append(controls);area.append(div)})}
 function move(i,d){const j=i+d;if(j<0||j>=state.jobs.length)return;[state.jobs[i],state.jobs[j]]=[state.jobs[j],state.jobs[i]];save()}
 function edit(id){
   active=id;
