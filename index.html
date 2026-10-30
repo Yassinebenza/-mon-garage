@@ -156,7 +156,25 @@ if (isMechanic) {
  $('editor').classList.add('hidden');
 save();
 });                                                 
-$('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
+$('clear').addEventListener('click', () => {
+  if (!active || !state.cars[active]) {
+    alert('Cette place est déjà libre.');
+    return;
+  }
+  const voiture = state.cars[active];
+  if (active.startsWith('V') && voiture.status !== 'Vendu') {
+    alert('Le véhicule doit être marqué Vendu avant son départ.');
+    return;
+  }
+  if (!confirm('Confirmer le départ du véhicule et libérer la place ' + active + ' ?')) {
+    return;
+  }
+  delete state.cars[active];
+  $('editor').classList.add('hidden');
+  active = null;
+  save();
+});
+  $('repair-form').addEventListener('submit',e=>{e.preventDefault();const title=$('job').value.trim();if(!title)return;state.jobs.push({title,notes:$('job-notes').value.trim(),done:false});e.target.reset();save()});
 render();
  $('history-btn').addEventListener('click', async () => {
   const panel = $('history-panel');
