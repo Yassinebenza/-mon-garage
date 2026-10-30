@@ -57,7 +57,6 @@ function updateSlots(){
   $('sales-count').value = salesCount;
   $('clients-count').value = clientsCount;
 }
-}
 async function api(action,data){
   if(!sessionToken) throw new Error('Veuillez vous reconnecter.');
   const controller=new AbortController();
