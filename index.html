@@ -2,7 +2,16 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GARAGE EXPERT</title>
 <style>:root{font-family:system-ui,-apple-system,sans-serif;color:#172535;background:#f1f5f9}*{box-sizing:border-box}body{margin:0}header{background:#132b45;color:white;padding:20px 16px}header h1{margin:0;font-size:25px}header p{margin:6px 0 0;color:#cbd5e1}main{max-width:960px;margin:auto;padding:18px 12px}h2{font-size:19px;margin:24px 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.spot{border:2px solid #cbd5e1;background:#fff;border-radius:14px;text-align:left;padding:12px;min-height:130px;cursor:pointer;color:inherit}.spot.filled{border-color:#f59e0b}.spot b{display:block;font-size:17px}.spot span{display:block;margin-top:8px;color:#475569;font-size:14px;overflow-wrap:anywhere}.spot img{width:100%;height:95px;object-fit:cover;border-radius:8px;margin-top:8px}.tag{display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:3px 9px;font-size:12px;margin-top:8px}.filled .tag{background:#fef3c7;color:#92400e}.panel{background:#fff;border-radius:14px;padding:16px;margin-top:15px;box-shadow:0 1px 4px #0001}input,select,textarea,button{font:inherit}input,select,textarea{display:block;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;margin:6px 0 12px}textarea{min-height:75px}label{font-weight:600;font-size:14px}button.action{border:0;border-radius:9px;background:#1463aa;color:white;padding:11px 15px;cursor:pointer;margin:3px 5px 3px 0}.danger{background:#b91c1c!important}.secondary{background:#64748b!important}.hidden{display:none}.task{border-top:1px solid #e2e8f0;padding:11px 0;overflow-wrap:anywhere}.task:first-child{border-top:0}.small{font-size:13px;color:#64748b}.empty{color:#64748b}.row{display:flex;gap:7px;flex-wrap:wrap}footer{font-size:12px;color:#64748b;margin:24px 0;text-align:center}#login{max-width:430px;margin:38px auto}#login input{font-size:18px}#app.hidden{display:none}#login-error{color:#b91c1c;font-size:14px;min-height:20px}</style></head>
 <body><header><h1>🚗 GARAGE EXPERT</h1><p>Cour de véhicules et suivi des réparations</p></header><section id="login" class="panel"><h2>🔐 Connexion à GARAGE EXPERT</h2><p>Connectez-vous avec votre identifiant et votre mot de passe personnels.</p><form id="login-form"><label>Identifiant<input id="username" type="text" required autocomplete="username" placeholder="Ex. ADMIN01"></label><label>Mot de passe<input id="access-code" type="password" required autocomplete="current-password" minlength="12" placeholder="Votre mot de passe"></label><button class="action" type="submit" id="login-button">Se connecter</button><p id="login-error" role="alert"></p></form></section><main id="app" class="hidden"><div class="panel"><strong id="summary">Chargement…</strong><div class="small">Touchez une place pour ajouter, modifier ou libérer un véhicule.</div></div>
-<h2>🚘 Véhicules à vendre — V1 à V12</h2><div class="grid" id="sales"></div><h2>🧰 Véhicules clients — C1 à C6</h2><div class="grid" id="clients"></div>
+<h2>🚘 Véhicules à vendre — V1 à V12</h2><div class="panel" id="capacity-settings">
+  <h2>⚙️ Gestion des places</h2>
+  <label>🚘 Places pour les véhicules à vendre (6 à 15)</label>
+  <input type="number" id="sales-count" min="6" max="15" value="12">
+  <label>🔧 Places pour les véhicules en réparation (4 à 8)</label>
+  <input type="number" id="clients-count" min="4" max="8" value="6">
+  <button type="button" class="action" id="save-capacity">
+    Enregistrer les places
+  </button>
+</div><div class="grid" id="sales"></div><h2>🧰 Véhicules clients — C1 à C6</h2><div class="grid" id="clients"></div>
 <section id="editor" class="panel hidden"><h2 id="edit-title">Modifier une place</h2><form id="vehicle-form">
 <label>Nom ou modèle du véhicule<input id="vehicle" maxlength="100" placeholder="Ex. Toyota Corolla"></label>
 <label>Client / propriétaire<input id="owner" maxlength="100" placeholder="Nom (facultatif)"></label>
@@ -23,8 +32,11 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_E1KcGlvcTaXneVriLXJrdQ_p0M_IX8S';
 const FUNCTION_URL=SUPABASE_URL+'/functions/v1/garage-access';
   const LOGIN_URL=SUPABASE_URL+'/functions/v1/garage-login';
 const $=id=>document.getElementById(id);
-const slots=[...Array.from({length:12},(_,i)=>'V'+(i+1)),...Array.from({length:6},(_,i)=>'C'+(i+1))];
-  let currentRole = null;
+const makeSlots = (prefix, count) =>
+  Array.from({length:count}, (_,i) => prefix + (i+1));
+let slots = [...makeSlots('V',12), ...makeSlots('C',6)];  let currentRole = null;
+  let salesCount = 12;
+let clientsCount = 6;
 let state={cars:{},jobs:[]},sessionToken=sessionStorage.getItem('garage_session_token'),active=null,saving=Promise.resolve(),dirty=false,refreshing=false;function normalize(s){return {cars:s?.cars&&typeof s.cars==='object'&&!Array.isArray(s.cars)?s.cars:{},jobs:Array.isArray(s?.jobs)?s.jobs:[]}}
 function info(message){$('sync-info').textContent=message}
 async function api(action,data){
